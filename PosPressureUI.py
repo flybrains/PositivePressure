@@ -6,23 +6,15 @@ from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QFileDialog, QAppli
 from PyQt5.QtGui import QIcon
 from os import system
 import os
-from configurator import getCfg
 import numpy as np
 import pickle
-import PosPressure as pp
+import PosPressureCore as ppc
 
 cwd = os.getcwd()
 qtCreatorFile = cwd+"/PosPressure.ui"
 
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qtCreatorFile)
 
-class Block(object):
-    def __init__(self, duration, lightConfig, flowRate, flowDir, flowGas):
-        self.duration = duration
-        self.lightConfig = lightConfig
-        self.flowRate = flowRate
-        self.flowDir = flowDir
-        self.flowGas = flowGas
 
 class ErrorMsg(QtWidgets.QMessageBox):
     def __init__(self, msg, parent=None):
@@ -53,7 +45,7 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
         self.saveProgramPB.clicked.connect(self.saveProgram)
         self.loadProgramPB.clicked.connect(self.loadProgram)
         self.blockList = []
-        dString = "{},     {} \t{}\t{}  {}       {}".format('#', 'Dur (s)', 'Light', 'Gas', 'mL/s', 'Flow Dir')
+        dString = "{},     {} \t{}\t{}  {}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir')
         lString = "---------------------------------------------------------------"
         self.programList.addItems([dString, lString])
 
@@ -61,29 +53,28 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
         # Configs: GreenLow = 1, GreenHigh = 2, RedLow = 3, RedHigh = 4, None=0
         # Air = 1, Odor = 2, None = 0
         if self.addGreenRadioButton.isChecked() and self.addDimRadioButton.isChecked():
-            lightCfg = 1
+            lightConfig = 1
             lightDspTxt = "Lo Green"
         elif self.addGreenRadioButton.isChecked() and self.addBrightRadioButton.isChecked():
-            lightCfg = 2
+            lightConfig = 2
             lightDspTxt = "Hi Green"
         elif self.addRedRadioButton.isChecked() and self.addDimRadioButton.isChecked():
-            lightCfg = 3
+            lightConfig = 3
             lightDspTxt = "Lo Red"
         elif self.addRedRadioButton.isChecked() and self.addBrightRadioButton.isChecked():
-            lightCfg = 4
+            lightConfig = 4
             lightDspTxt = "Hi Red"
         else:
-            lightCfg = 0
+            lightConfig = 0
             lightDspTxt = "No Light"
+
         if self.addFlowDir1RadioButton.isChecked():
             flowDir = 1
         if self.addFlowDir2RadioButton.isChecked():
             flowDir = 2
-        else:
-            #Error Pick Flow Dir
-            flowDir = 0
+
         dur = float(self.addTimeSpinBox.value())
-        flowRate = float(self.addFlowRateSpinBox.value())
+
         if self.addAirRadioButton.isChecked():
             flowGas = 1
             fgString = 'Air'
@@ -93,13 +84,11 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             flowGas = 0
             fgString = 'No Flow'
-            flowRate = 0
-            self.addFlowRateSpinBox.clear()
-            flowRate = 0
-        newBlock = Block(dur, lightCfg, flowRate, flowDir, flowGas)
+
+        newBlock = ppc.Block(dur, lightConfig, flowDir, flowGas)
         self.blockList.append(newBlock)
         listPos = len(self.blockList)
-        dispString = "{},     {} \t{}\t{}  {}       {}".format(listPos, str(dur), lightDspTxt, fgString, str(flowRate), str(flowDir))
+        dispString = "{},     {} \t{}\t{}  {}".format(listPos, str(dur), lightDspTxt, fgString, str(flowDir))
         self.programList.addItems([dispString])
         return None
 
@@ -116,16 +105,15 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             reconstructed = '{},{}'.format(listOfInfos[0], listOfInfos[1])
             reindexed.append(reconstructed)
         self.programList.clear()
-        dString = "{},     {} \t{}\t{}  {}       {}".format('#', 'Dur (s)', 'Light', 'Gas', 'mL/s', 'Flow Dir')
+        dString = "{},     {} \t{}\t{}  {}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir')
         lString = "---------------------------------------------------------------"
         self.programList.addItems([dString, lString])
         for reindex in reindexed:
             self.programList.addItems([reindex])
         return None
 
+
     def addDupBlocks(self):
-
-
 
         single = False
         multi = False
@@ -164,9 +152,11 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
                     copyBlocks = list(np.arange(idxLo, (idxHi+1), 1))
+
+
                     for i in range(self.programList.count()):
                         if i in copyBlocks:
-                            blockToAdd = self.blockList[i]
+                            blockToAdd = self.blockList[i-1]
                             self.blockList.append(blockToAdd)
                             index = str(len(self.blockList))
                             toAdd = self.programList.item(i+1).text()
@@ -189,6 +179,7 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def saveProgram(self):
         self.programSavePath = QFileDialog.getSaveFileName(self, 'Select Save Directory', os.getcwd())
+
         self.programSavePath = self.programSavePath[0]+".pkl"
         entries = [self.programList.item(i).text() for i in range(self.programList.count())]
         savePack = {'dispList':entries,
@@ -220,7 +211,7 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             self.error.show()
 
 
-        pp.run(self.comm, self.baud, self.blockList, self.nTrials, self.savePath)
+        ppc.run(self.comm, self.baud, self.blockList, self.nTrials, self.savePath)
         return None
 
 

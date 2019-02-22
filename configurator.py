@@ -1,62 +1,67 @@
-from PosPressure import Block
+from PosPressureCore import Block
 
 def getCfg(block):
 
-    lc = block.lightCfg
+    lc = block.lightConfig
     fd = block.flowDir
     fg = block.flowGas
 
     if (lc==0) and (fd==1) and (fg==1):
-        return '1'
+        returnVal = '1'
     if (lc==0) and (fd==2) and (fg==1):
-        return '2'
+        returnVal = '2'
     if (lc==0) and (fd==1) and (fg==2):
-        return '3'
+        returnVal = '3'
     if (lc==0) and (fd==2) and (fg==2):
-        return '4'
+        returnVal = '4'
     if (lc==0) and (fg==0):
-        return '5'
+        returnVal = '5'
 
     if (lc==1) and (fd==1) and (fg==1):
-        return '6'
+        returnVal = '6'
     if (lc==1) and (fd==2) and (fg==1):
-        return '7'
+        returnVal = '7'
     if (lc==1) and (fd==1) and (fg==2):
-        return '8'
+        returnVal = '8'
     if (lc==1) and (fd==2) and (fg==2):
-        return '9'
+        returnVal = '9'
     if (lc==1) and (fg==0):
-        return 'a'
+        returnVal = 'a'
 
     if (lc==2) and (fd==1) and (fg==1):
-        return 'b'
+        returnVal = 'b'
     if (lc==2) and (fd==2) and (fg==1):
-        return 'c'
+        returnVal = 'c'
     if (lc==2) and (fd==1) and (fg==2):
-        return 'd'
+        returnVal = 'd'
     if (lc==2) and (fd==2) and (fg==2):
-        return 'e'
+        returnVal = 'e'
     if (lc==2) and (fg==0):
-        return 'f'
+        returnVal = 'f'
 
     if (lc==3) and (fd==1) and (fg==1):
-        return 'g'
+        returnVal = 'g'
     if (lc==3) and (fd==2) and (fg==1):
-        return 'h'
+        returnVal = 'h'
     if (lc==3) and (fd==1) and (fg==2):
-        return 'i'
+        returnVal = 'i'
     if (lc==3) and (fd==2) and (fg==2):
-        return 'j'
+        returnVal = 'j'
     if (lc==3) and (fg==0):
-        return 'k'
+        returnVal = 'k'
 
     if (lc==4) and (fd==1) and (fg==1):
-        return 'l'
+        returnVal = 'l'
     if (lc==4) and (fd==2) and (fg==1):
-        return 'm'
+        returnVal = 'm'
     if (lc==4) and (fd==1) and (fg==2):
-        return 'n'
+        returnVal = 'n'
     if (lc==4) and (fd==2) and (fg==2):
-        return 'o'
+        returnVal = 'o'
     if (lc==4) and (fg==0):
-        return 'p'
+        returnVal = 'p'
+
+    return returnVal
+
+if __name__=="__main__":
+    pass
