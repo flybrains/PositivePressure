@@ -10,14 +10,29 @@ import threading
 from datetime import datetime
 import serial
 
-#import PyCapture2
+import flycapture2 as fc2
 
 class Block(object):
-	def __init__(self, duration, lightConfig, flowDir, flowGas):
+	def __init__(self, duration, lightConfig, flowDir, flowGas, 
+				recording, pairing, lightDspTxt, fgString, recString, pairString):
 		self.duration = duration
 		self.lightConfig = lightConfig
 		self.flowDir = flowDir
 		self.flowGas = flowGas
+		self.recording = recording
+		self.pairing = pairing
+
+		self.lightDspTxt = lightDspTxt
+		self.fgString = fgString
+		self.recString = recString
+		self.pairString = pairString
+
+
+	def addFN(self, FN):
+		self.folderName = FN
+
+		return None
+
 
 def getCfg(block):
 
@@ -26,11 +41,11 @@ def getCfg(block):
 	fg = block.flowGas
 
 	if (lc==0) and (fd==1) and (fg==1):
-		returnVal = b'1'
+		returnVal = '1'
 	if (lc==0) and (fd==2) and (fg==1):
 		returnVal = '2'
 	if (lc==0) and (fd==1) and (fg==2):
-		returnVal = b'3'
+		returnVal = '3'
 	if (lc==0) and (fd==2) and (fg==2):
 		returnVal = '4'
 	if (lc==0) and (fg==0):
@@ -81,118 +96,263 @@ def getCfg(block):
 		returnVal = 'p'
 	return returnVal
 
+def reverseCfg(IDString):
+
+	if IDString == '1':
+		returnVal = 'No Light\tDirection 1\tAir'
+	if IDString == '2':
+		returnVal = 'No Light\tDirection 2\tAir'
+	if IDString == '3':
+		returnVal = 'No Light\tDirection 1\tOdor'
+	if IDString == '4':
+		returnVal = 'No Light\tDirection 2\tOdor'
+	if IDString == '5':
+		returnVal = 'No Light\tNo Flow'
+
+	if IDString == '6':
+		returnVal = 'Low Green\tDirection 1\tAir'
+	if IDString == '7':
+		returnVal = 'Low Green\tDirection 2\tAir'
+	if IDString == '8':
+		returnVal = 'Low Green\tDirection 1\tOdor'
+	if IDString == '9':
+		returnVal = 'Low Green\tDirection 2\tOdor'
+	if IDString == 'a':
+		returnVal = 'Low Green\tNo Flow'
 
 
-def camera(nFrames, save_dir):
+	if IDString == 'b':
+		returnVal = 'High Green\tDirection 1\tAir'
+	if IDString == 'c':
+		returnVal = 'High Green\tDirection 2\tAir'
+	if IDString == 'd':
+		returnVal = 'High Green\tDirection 1\tOdor'
+	if IDString == 'e':
+		returnVal = 'High Green\tDirection 2\tOdor'
+	if IDString == 'f':
+		returnVal = 'High Green\tNo Flow'
 
-	def capIm():
-	# Function retreives buffer from FLIR camera in place of cv2 capture
-		try:
-			img = cam.retrieveBuffer()
-		except PyCapture2.Fc2error as fc2Err:
-			print("Error retrieving buffer :", fc2Err)
-		return False, []
+	if IDString == 'g':
+		returnVal = 'Low Red\tDirection 1\tAir'
+	if IDString == 'h':
+		returnVal = 'Low Red\tDirection 2\tAir'
+	if IDString == 'i':
+		returnVal = 'Low Red\tDirection 1\tOdor'
+	if IDString == 'j':
+		returnVal = 'Low Red\tDirection 2\tOdor'
+	if IDString == 'k':
+		returnVal = 'Low Red\tNo Flow'
 
-	data = np.asarray(img.getData(), dtype=np.uint8)
-	data = data.reshape((img.getRows(), img.getCols()))
+	if IDString == 'l':
+		returnVal = 'High Red\tDirection 1\tAir'
+	if IDString == 'm':
+		returnVal = 'High Red\tDirection 2\tAir'
+	if IDString == 'n':
+		returnVal = 'High Red\tDirection 1\tOdor'
+	if IDString == 'o':
+		returnVal = 'High Red\tDirection 2\tOdor'
+	if IDString == 'p':
+		returnVal = 'High Red\tNo Flow'
+	return returnVal
 
-	return True, data
+# def camera(nFrames, save_dir):
 
-	bus = PyCapture2.BusManager()
-	cam = PyCapture2.Camera()
-	uid = bus.getCameraFromIndex(0)
-	cam.connect(uid)
-	cam.startCapture()
+# 	def capIm():
+# 	# Function retreives buffer from FLIR camera in place of cv2 capture
+# 		try:
+# 			img = cam.retrieveBuffer()
+# 		except PyCapture2.Fc2error as fc2Err:
+# 			print("Error retrieving buffer :", fc2Err)
+# 		return False, []
+
+# 	data = np.asarray(img.getData(), dtype=np.uint8)
+# 	data = data.reshape((img.getRows(), img.getCols()))
+
+# 	return True, data
+
+# 	bus = PyCapture2.BusManager()
+# 	cam = PyCapture2.Camera()
+# 	uid = bus.getCameraFromIndex(0)
+# 	cam.connect(uid)
+# 	cam.startCapture()
+
+# 	photos = []
+
+# 	t0 = time.time()
+
+# 	for i in range(nFrames):
+# 		ret = True
+# 		ret, frame = capIm()
+# 		frame = np.expand_dims(frame, 2)
+# 		frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2BGR)
+
+# 		cv2.imshow("Frame", frame)
+# 		photos.append(frame)
+
+# 		print((i+1)/(time.time() - t0))
+
+# 		# Video keyboard interrupt
+# 		if cv2.waitKey(1) & 0xFF == ord('q'):
+# 			break
+
+
+# 	with open(save_dir+'/photos.pkl', 'wb') as f:
+# 		pickle.dump(photos, f)
+
+# 	cam.stopCapture()
+# 	cam.disconnect()
+# 	cv2.destroyAllWindows()
+# 	cv2.waitKey()
+
+def camera(n_frames, save_dir):
+
+	cap = fc2.Context()
+	cap.connect(*cap.get_camera_from_index(0))
+	cap.set_video_mode_and_frame_rate(fc2.VIDEOMODE_640x480Y8, fc2.FRAMERATE_30)
+	m, f = cap.get_video_mode_and_frame_rate()
+	p = cap.get_property(fc2.FRAME_RATE)
+	cap.set_property(**p)
+	cap.start_capture()
 
 	photos = []
 
-	t0 = time.time()
+	baseTime = time.time()
 
-	for i in range(nFrames):
-		ret = True
-		ret, frame = capIm()
-		frame = np.expand_dims(frame, 2)
-		frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2BGR)
+	for i in range(n_frames):
 
-		cv2.imshow("Frame", frame)
+		img = fc2.Image()
+		cap.retrieve_buffer(img)
+		frame = np.array(img)
+
+		#cv2.imshow("Frame", frame)
 		photos.append(frame)
-
-		print((i+1)/(time.time() - t0))
 
 		# Video keyboard interrupt
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
 
+	#print('Photo Set of {} Done at : {}'.format(n_frames, (time.time() - baseTime)))
 
-	with open(save_dir+'/photos.pkl', 'wb') as f:
-		pickle.dump(photos, f)
+	if save_dir is not None:
+		with open(save_dir+'/photos.pkl', 'wb') as f:
+			pickle.dump(photos, f)
+	else:
+		pass
 
-	cam.stopCapture()
-	cam.disconnect()
+
+	cap.stop_capture()
+	cap.disconnect()
 	cv2.destroyAllWindows()
 	cv2.waitKey()
 
-def pneumaticsAndLights(ser, programLists):
+def pneumaticsAndLights(ser, programLists, wrap):
 
 	timeList = programLists[0]
 	cfgList = programLists[1]
 
 	for index in range(len(cfgList)):
+
+		c = str(cfgList[index])
+		print(reverseCfg(c))
+
 		ser.write(str.encode(cfgList[index]))
+		#ser.write(cfgList[index])
 		time.sleep(timeList[index])
 
-
-
+	if wrap==True:
+		ser.write(str.encode('0'))
+	else:
+		pass
 
 #========================================================================================================
 
-def run(comm, baud, blockList, nTrials, outFolder):
+def run(comm, baud, blockList, outFolder):
+
+	# Do dummy camera thread with one frame and no recording to speed context creation later
+	cameraThread = threading.Thread(target = camera, args=(1, None,))
+	cameraThread.start()
 
 	dt = datetime.now()
 	datetimeString = str(dt.month)+"_"+str(dt.day)+"_"+str(dt.year)+"_"+str(dt.hour)+str(dt.minute)
 
-	betweenTrialSleepTime = 15
-
 	ser = serial.Serial(comm, baud)
 	time.sleep(2)
 
-	timeList = [float(block.duration) for block in blockList]
-	cfgList = [getCfg(block) for block in blockList]
-	programLists = [timeList, cfgList]
+	segments = []
+	newSeg = []
+	
 
-	timeSum = np.sum(timeList)
-	nFrames = int(timeSum*30)
+	for idx, block in enumerate(blockList):
+		if idx==0:
+			newSeg = [block]
+			lastBlockFN = block.folderName
+		
+		if (idx>0) and (lastBlockFN==block.folderName):
+			newSeg.append(block)
+			lastBlockFN = block.folderName
 
-	for i in range(nTrials):
-		print("Trial {}".format(i))
-		saveDir = outFolder + datetimeString + '/Trial{}'.format(i)
-		#os.makedirs(saveDir)
+		if (lastBlockFN!=block.folderName):
+			segments.append(newSeg)
+			newSeg = []
+			newSeg.append(block)
+			lastBlockFN = block.folderName
 
-		pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, ))
-		cameraThread = threading.Thread(target = camera, args=(nFrames, saveDir,))
+		if (idx == len(blockList)-1):
+			segments.append(newSeg)
 
-		pneumaticsAndLightsThread.start()
-		#cameraThread.start()
 
-		while (pneumaticsAndLightsThread.isAlive()):# or (cameraThread.isAlive()):
-		# 	while (cameraThread.isAlive()):
-			time.sleep(0.1)
-		time.sleep(betweenTrialSleepTime)
+	for idx, segment in enumerate(segments):
 
-	print("Processing Pickles")
+		timeList = [float(block.duration) for block in segment]
+		cfgList = [getCfg(block) for block in segment]
+		programLists = [timeList, cfgList]
 
-	# list_of_folders = os.listdir(outFolder + datetimeString)
-	#
-	#
-	# for folder in list_of_folders:
-	# 	with open(outFolder + datetimeString+'/'+folder+'/photos.pkl', 'rb') as f:
-	# 		photos = pickle.load(f)
-	#
-	# 		for i, photo in enumerate(photos):
-	# 			frame = np.expand_dims(photo, 2)
-	# 			cl_frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
-	# 			#bw_frame = cv2.cvtColor(cl_frame, cv2.COLOR_BGR2GRAY)
-	#
-	# 			cv2.imwrite(outFolder + datetimeString+'/'+folder+"/{}.jpg".format(i), cl_frame)
-	#
-	# 	os.remove(outFolder + datetimeString+'/'+folder+'/photos.pkl')
+		timeSum = np.sum(timeList)
+		nFrames = int(timeSum*30)
+
+		if idx==(len(segments)-1):
+			wrap = True
+		else:
+			wrap = False
+
+
+		if segment[0].recording==True:
+
+			saveDir = outFolder + "/"+datetimeString + '/{}'.format(segment[0].folderName)
+			os.makedirs(saveDir)
+
+			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, ))
+			cameraThread = threading.Thread(target = camera, args=(nFrames, saveDir,))
+
+			pneumaticsAndLightsThread.start()
+			cameraThread.start()
+
+			while (pneumaticsAndLightsThread.isAlive() or cameraThread.isAlive()):
+				time.sleep(0.1)
+
+		else:
+			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, ))
+			pneumaticsAndLightsThread.start()
+
+			while (pneumaticsAndLightsThread.isAlive()):
+				time.sleep(0.01)
+
+	
+
+	list_of_folders = os.listdir(outFolder +"/"+datetimeString)
+	
+	
+	for idx, folder in enumerate(list_of_folders):
+		print("Processing Pickles {} / {}".format(idx+1, len(list_of_folders)))
+		with open(outFolder +'/'+datetimeString+'/'+folder+'/photos.pkl', 'rb') as f:
+			photos = pickle.load(f)
+	
+			for i, photo in enumerate(photos):
+				frame = np.expand_dims(photo, 2)
+				cl_frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
+				#bw_frame = cv2.cvtColor(cl_frame, cv2.COLOR_BGR2GRAY)
+	
+				cv2.imwrite(outFolder +'/'+ datetimeString+'/'+folder+"/{}.tiff".format(i), cl_frame)
+	
+		os.remove(outFolder +'/'+datetimeString+'/'+folder+'/photos.pkl')
+	print('Done')

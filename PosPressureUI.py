@@ -29,7 +29,6 @@ class WarningMsg(QtWidgets.QMessageBox):
         self.setText(msg)
         self.setWindowTitle('Warning')
 
-
 class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
@@ -44,9 +43,10 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pickSaveFolderPB.clicked.connect(self.pickSaveFolder)
         self.saveProgramPB.clicked.connect(self.saveProgram)
         self.loadProgramPB.clicked.connect(self.loadProgram)
+        #self.computeFoldersPB.clicked.connect(self.computeFolders)
         self.blockList = []
-        dString = "{},     {} \t{}\t{}  {}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir')
-        lString = "---------------------------------------------------------------"
+        dString = "{},\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir', 'Recording', 'Pairing', 'Folder')
+        lString = "---------------------------------------------------------------------------------------------------------"
         self.programList.addItems([dString, lString])
 
     def addBlock(self):
@@ -85,10 +85,54 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             flowGas = 0
             fgString = 'No Flow'
 
-        newBlock = ppc.Block(dur, lightConfig, flowDir, flowGas)
+        if self.pairingTrialCheckBox.isChecked():
+            pairing = True
+            pairString = 'P'
+        else:
+            pairing = False
+            pairString = ''
+
+        if self.recordingCheckBox.isChecked():
+            recording = True
+            recString = 'ON'
+        else:
+            recording = False
+            recString = 'OFF'
+
+
+        newBlock = ppc.Block(dur, lightConfig, flowDir, flowGas, recording, 
+                            pairing, lightDspTxt, fgString, recString, pairString)
         self.blockList.append(newBlock)
         listPos = len(self.blockList)
-        dispString = "{},     {} \t{}\t{}  {}".format(listPos, str(dur), lightDspTxt, fgString, str(flowDir))
+
+        if (listPos == 1) and (recording==True):
+            folderName = '1'
+            self.MRFolderNo = 1
+            self.inRecStreak = True
+        if (listPos == 1 ) and (recording==False):
+            folderName = None
+            self.MRFolderNo = 0
+            self.inRecStreak = False
+
+        if (listPos > 1) and (recording==True) and (self.inRecStreak==True):
+            folderName = str(self.MRFolderNo)
+            self.inRecStreak=True
+
+        if (listPos > 1) and (recording==True) and (self.inRecStreak==False):
+            folderName = str(self.MRFolderNo + 1)
+            self.MRFolderNo = self.MRFolderNo + 1
+            self.inRecStreak=True
+
+        if (listPos>1) and (recording==False):
+            self.inRecStreak=False
+            folderName = None
+
+        if (pairing==True) and (recording==True):
+            folderName = folderName+'_P'
+
+        self.blockList[-1].addFN(folderName)
+
+        dispString = "{},\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(listPos, str(dur), lightDspTxt, fgString, str(flowDir), recString, pairString, folderName)
         self.programList.addItems([dispString])
         return None
 
@@ -105,13 +149,64 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             reconstructed = '{},{}'.format(listOfInfos[0], listOfInfos[1])
             reindexed.append(reconstructed)
         self.programList.clear()
-        dString = "{},     {} \t{}\t{}  {}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir')
+        dString = "{},\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir', 'Recording', 'Pairing', 'Folder')
         lString = "---------------------------------------------------------------"
         self.programList.addItems([dString, lString])
         for reindex in reindexed:
             self.programList.addItems([reindex])
         return None
 
+    def computeFolders(self):
+
+        for block in self.blockList:
+            block.addFN('xTemp')
+
+
+
+        self.programList.clear()
+        dString = "{},\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format('#', 'Dur (s)', 'Light', 'Gas', 'Flow Dir', 'Recording', 'Pairing', 'Folder')
+        lString = "---------------------------------------------------------------"
+        self.programList.addItems([dString, lString])
+
+        for idx, block in enumerate(self.blockList):
+
+            listPos=idx+1
+
+            if (listPos == 1) and (block.recording==True):
+                fn = '1'
+                self.MRFolderNo = 1
+                self.inRecStreak = True
+            if (listPos == 1 ) and (block.recording==False):
+                fn = None
+                self.MRFolderNo = 0
+                self.inRecStreak = False
+
+            if (listPos > 1) and (block.recording==True) and (self.inRecStreak==True):
+                fn = str(self.MRFolderNo)
+                self.inRecStreak=True
+
+            if (listPos > 1) and (block.recording==True) and (self.inRecStreak==False):
+                fn = str(self.MRFolderNo + 1)
+                self.MRFolderNo = self.MRFolderNo + 1
+                self.inRecStreak=True
+
+            if (listPos>1) and (block.recording==False):
+                self.inRecStreak=False
+                fn = None
+
+            if (block.pairing==True) and (block.recording==True):
+                fn = fn+'_P'
+
+            block.addFN(str(fn))
+
+            dispString = "{},\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(listPos, str(block.duration), block.lightDspTxt, block.fgString, 
+                                                                  str(block.flowDir), block.recString, block.pairString, block.folderName)
+            self.programList.addItems([dispString])
+
+
+
+
+        return None
 
     def addDupBlocks(self):
 
@@ -122,8 +217,15 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             idx = int(self.dupBlockText.toPlainText()) -1
             entries = [self.programList.item(i).text() for i in range(self.programList.count())]
             toAdd = entries[idx+2]
-            blockToAdd = self.blockList[idx]
+
+            blockToReplicate = self.blockList[idx]
+            blockToAdd = ppc.Block(blockToReplicate.dur, blockToReplicate.lightConfig, 
+                                   blockToReplicate.flowDir, blockToReplicate.flowGas, 
+                                   blockToReplicate.recording, blockToReplicate.pairing, 
+                                   blockToReplicate.lightDspTxt, blockToReplicate.fgString, 
+                                   blockToReplicate.recString, blockToReplicate.pairString)
             self.blockList.append(blockToAdd)
+
             self.dupBlockText.clear()
             listOfInfos = toAdd.split(",")
             listOfInfos[0] = str(len(self.blockList))
@@ -156,8 +258,15 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     for i in range(self.programList.count()):
                         if i in copyBlocks:
-                            blockToAdd = self.blockList[i-1]
+
+                            blockToReplicate = self.blockList[i-1]
+                            blockToAdd = ppc.Block(blockToReplicate.duration, blockToReplicate.lightConfig, 
+                                                   blockToReplicate.flowDir, blockToReplicate.flowGas, 
+                                                   blockToReplicate.recording, blockToReplicate.pairing, 
+                                                   blockToReplicate.lightDspTxt, blockToReplicate.fgString, 
+                                                   blockToReplicate.recString, blockToReplicate.pairString)
                             self.blockList.append(blockToAdd)
+
                             index = str(len(self.blockList))
                             toAdd = self.programList.item(i+1).text()
                             listOfInfos = toAdd.split(",")
@@ -168,6 +277,8 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
                             pass
                 self.dupBlocksFirstText.clear()
                 self.dupBlocksLastText.clear()
+
+            self.computeFolders()
             return None
 
 
@@ -200,18 +311,21 @@ class PosPressure(QtWidgets.QMainWindow, Ui_MainWindow):
             self.programList.addItems([entry])
         return None
 
+
     def run(self):
+
+        self.computeFolders()
+
         try:
             self.comm = self.arduinoCommText.toPlainText()
             self.baud = int(self.arduinoBaudText.toPlainText())
-            self.nTrials = self.programCylceSpinBox.value()
         except ValueError:
             msg = 'Make sure all configuration fields are entered with valid entries'
             self.error = ErrorMsg(msg)
             self.error.show()
 
 
-        ppc.run(self.comm, self.baud, self.blockList, self.nTrials, self.savePath)
+        ppc.run(self.comm, self.baud, self.blockList, self.savePath)
         return None
 
 
