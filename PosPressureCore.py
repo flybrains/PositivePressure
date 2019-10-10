@@ -13,7 +13,7 @@ import serial
 import flycapture2 as fc2
 
 class Block(object):
-	def __init__(self, duration, lightConfig, flowDir, flowGas, 
+	def __init__(self, duration, lightConfig, flowDir, flowGas,
 				recording, pairing, lightDspTxt, fgString, recString, pairString):
 		self.duration = duration
 		self.lightConfig = lightConfig
@@ -27,12 +27,9 @@ class Block(object):
 		self.recString = recString
 		self.pairString = pairString
 
-
 	def addFN(self, FN):
 		self.folderName = FN
-
 		return None
-
 
 def getCfg(block):
 
@@ -155,66 +152,16 @@ def reverseCfg(IDString):
 		returnVal = 'High Red\tNo Flow'
 	return returnVal
 
-# def camera(nFrames, save_dir):
-
-# 	def capIm():
-# 	# Function retreives buffer from FLIR camera in place of cv2 capture
-# 		try:
-# 			img = cam.retrieveBuffer()
-# 		except PyCapture2.Fc2error as fc2Err:
-# 			print("Error retrieving buffer :", fc2Err)
-# 		return False, []
-
-# 	data = np.asarray(img.getData(), dtype=np.uint8)
-# 	data = data.reshape((img.getRows(), img.getCols()))
-
-# 	return True, data
-
-# 	bus = PyCapture2.BusManager()
-# 	cam = PyCapture2.Camera()
-# 	uid = bus.getCameraFromIndex(0)
-# 	cam.connect(uid)
-# 	cam.startCapture()
-
-# 	photos = []
-
-# 	t0 = time.time()
-
-# 	for i in range(nFrames):
-# 		ret = True
-# 		ret, frame = capIm()
-# 		frame = np.expand_dims(frame, 2)
-# 		frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2BGR)
-
-# 		cv2.imshow("Frame", frame)
-# 		photos.append(frame)
-
-# 		print((i+1)/(time.time() - t0))
-
-# 		# Video keyboard interrupt
-# 		if cv2.waitKey(1) & 0xFF == ord('q'):
-# 			break
-
-
-# 	with open(save_dir+'/photos.pkl', 'wb') as f:
-# 		pickle.dump(photos, f)
-
-# 	cam.stopCapture()
-# 	cam.disconnect()
-# 	cv2.destroyAllWindows()
-# 	cv2.waitKey()
-
 def camera(n_frames, save_dir):
 
 	cap = fc2.Context()
 	cap.connect(*cap.get_camera_from_index(0))
+
 	cap.set_video_mode_and_frame_rate(fc2.VIDEOMODE_640x480Y8, fc2.FRAMERATE_30)
 	m, f = cap.get_video_mode_and_frame_rate()
 	p = cap.get_property(fc2.FRAME_RATE)
 	cap.set_property(**p)
 	cap.start_capture()
-
-	photos = []
 
 	baseTime = time.time()
 
@@ -224,36 +171,31 @@ def camera(n_frames, save_dir):
 		cap.retrieve_buffer(img)
 		frame = np.array(img)
 
-		#cv2.imshow("Frame", frame)
-		photos.append(frame)
+		j = str(i)
+		k = str(j.zfill(8))
+		cv2.imwrite(save_dir+'/{}.jpg'.format(k), frame)
 
 		# Video keyboard interrupt
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
-
-	#print('Photo Set of {} Done at : {}'.format(n_frames, (time.time() - baseTime)))
-
-	if save_dir is not None:
-		with open(save_dir+'/photos.pkl', 'wb') as f:
-			pickle.dump(photos, f)
 	else:
 		pass
-
 
 	cap.stop_capture()
 	cap.disconnect()
 	cv2.destroyAllWindows()
 	cv2.waitKey()
 
-def pneumaticsAndLights(ser, programLists, wrap):
-
+def pneumaticsAndLights(ser, programLists, wrap, nums):
+	base = nums[0]
+	total = nums[1]
 	timeList = programLists[0]
 	cfgList = programLists[1]
 
 	for index in range(len(cfgList)):
 
 		c = str(cfgList[index])
-		print(reverseCfg(c))
+		print("Block {}/{} ".format((index+base+1), total), reverseCfg(c))
 
 		ser.write(str.encode(cfgList[index]))
 		#ser.write(cfgList[index])
@@ -268,8 +210,9 @@ def pneumaticsAndLights(ser, programLists, wrap):
 
 def run(comm, baud, blockList, outFolder):
 
-	# Do dummy camera thread with one frame and no recording to speed context creation later
-	cameraThread = threading.Thread(target = camera, args=(1, None,))
+
+	#Do dummy camera thread with one frame and no recording to speed context creation later
+	cameraThread = threading.Thread(target = camera, args=(1, None, ))
 	cameraThread.start()
 
 	dt = datetime.now()
@@ -280,13 +223,15 @@ def run(comm, baud, blockList, outFolder):
 
 	segments = []
 	newSeg = []
-	
+
+	total = len(blockList)
+
 
 	for idx, block in enumerate(blockList):
 		if idx==0:
 			newSeg = [block]
 			lastBlockFN = block.folderName
-		
+
 		if (idx>0) and (lastBlockFN==block.folderName):
 			newSeg.append(block)
 			lastBlockFN = block.folderName
@@ -301,7 +246,19 @@ def run(comm, baud, blockList, outFolder):
 			segments.append(newSeg)
 
 
+	total = 0
+
+	for seg in segments:
+		print('----')
+		for block in seg:
+			print(total, getCfg(block), block.duration, block.folderName)
+			total = total +1
+
+	base = 0
+
 	for idx, segment in enumerate(segments):
+
+		nums = [base, total]
 
 		timeList = [float(block.duration) for block in segment]
 		cfgList = [getCfg(block) for block in segment]
@@ -321,7 +278,7 @@ def run(comm, baud, blockList, outFolder):
 			saveDir = outFolder + "/"+datetimeString + '/{}'.format(segment[0].folderName)
 			os.makedirs(saveDir)
 
-			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, ))
+			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, nums,))
 			cameraThread = threading.Thread(target = camera, args=(nFrames, saveDir,))
 
 			pneumaticsAndLightsThread.start()
@@ -331,28 +288,12 @@ def run(comm, baud, blockList, outFolder):
 				time.sleep(0.1)
 
 		else:
-			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, ))
+			pneumaticsAndLightsThread = threading.Thread(target = pneumaticsAndLights, args=(ser, programLists, wrap, nums, ))
 			pneumaticsAndLightsThread.start()
 
 			while (pneumaticsAndLightsThread.isAlive()):
 				time.sleep(0.01)
 
-	
+		base = base + len(segment)
 
-	list_of_folders = os.listdir(outFolder +"/"+datetimeString)
-	
-	
-	for idx, folder in enumerate(list_of_folders):
-		print("Processing Pickles {} / {}".format(idx+1, len(list_of_folders)))
-		with open(outFolder +'/'+datetimeString+'/'+folder+'/photos.pkl', 'rb') as f:
-			photos = pickle.load(f)
-	
-			for i, photo in enumerate(photos):
-				frame = np.expand_dims(photo, 2)
-				cl_frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
-				#bw_frame = cv2.cvtColor(cl_frame, cv2.COLOR_BGR2GRAY)
-	
-				cv2.imwrite(outFolder +'/'+ datetimeString+'/'+folder+"/{}.tiff".format(i), cl_frame)
-	
-		os.remove(outFolder +'/'+datetimeString+'/'+folder+'/photos.pkl')
 	print('Done')
